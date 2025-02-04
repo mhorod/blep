@@ -105,15 +105,15 @@ fn get_accepting_states<T: Eq + Hash + Copy>(grammar: &Grammar<T>) -> HashMap<T,
     grammar
         .productions
         .iter()
-        .map(|p| (p.symbol, &p.produces.accepting))
+        .map(|(symbol, dfa)| (*symbol, &dfa.accepting))
         .collect()
 }
 
 fn get_entering_transitions<T: Eq + Hash + Copy>(grammar: &Grammar<T>) -> HashMap<State, Vec<T>> {
     grammar
         .productions
-        .iter()
-        .flat_map(|p| p.produces.transitions.iter())
+        .values()
+        .flat_map(|dfa| dfa.transitions.iter())
         .map(|((_, symbol), next_state)| (*next_state, *symbol))
         .into_grouping_map()
         .collect()
@@ -125,8 +125,8 @@ fn get_reversed_nullable_transitions<T: Eq + Hash + Copy>(
 ) -> HashMap<State, Vec<State>> {
     grammar
         .productions
-        .iter()
-        .flat_map(|p| p.produces.transitions.iter())
+        .values()
+        .flat_map(|dfa| dfa.transitions.iter())
         .filter(|((_, symbol), _)| nullable.contains(symbol))
         .map(|((state, _), next_state)| (*next_state, *state))
         .into_grouping_map()

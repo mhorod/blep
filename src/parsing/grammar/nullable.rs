@@ -71,8 +71,8 @@ impl<T: Hash + Eq + Copy> NullableFinder<T> {
 fn reversed_transitions<T: Clone>(grammar: &Grammar<T>) -> HashMap<State, Vec<(State, T)>> {
     let mut result: HashMap<State, Vec<(State, T)>> = HashMap::new();
 
-    for production in &grammar.productions {
-        for (k, v) in &production.produces.transitions {
+    for dfa in grammar.productions.values() {
+        for (k, v) in &dfa.transitions {
             result
                 .entry(*v)
                 .and_modify(|vec: &mut Vec<(State, T)>| vec.push(k.clone()))
@@ -86,16 +86,16 @@ fn reversed_transitions<T: Clone>(grammar: &Grammar<T>) -> HashMap<State, Vec<(S
 fn accepting_states<T>(grammar: &Grammar<T>) -> Vec<State> {
     grammar
         .productions
-        .iter()
-        .flat_map(|production| production.produces.accepting.iter())
+        .values()
+        .flat_map(|dfa| dfa.accepting.iter())
         .copied()
         .collect()
 }
 
-fn start_states<T: Clone>(grammar: &Grammar<T>) -> HashMap<State, T> {
+fn start_states<T: Copy>(grammar: &Grammar<T>) -> HashMap<State, T> {
     grammar
         .productions
         .iter()
-        .map(|production| (production.produces.start, production.symbol.clone()))
+        .map(|(symbol, dfa)| (dfa.start, *symbol))
         .collect()
 }

@@ -11,23 +11,37 @@ enum GeneralSymbol<T> {
     Symbol(T),
 }
 
+pub struct FirstSymbols<T> {
+    pub for_states: HashMap<State, HashSet<T>>,
+    pub for_symbols: HashMap<T, HashSet<T>>,
+}
+
 pub fn find_first_symbols<T: Hash + Eq + Copy>(
     grammar: &Grammar<T>,
     nullable: &HashSet<T>,
-) -> HashMap<State, HashSet<T>> {
+) -> FirstSymbols<T> {
     let mut graph: HashMap<GeneralSymbol<T>, HashSet<GeneralSymbol<T>>> = HashMap::new();
 
-    for production in &grammar.productions {
-        insert(&mut graph,
-            GeneralSymbol::Symbol(production.symbol),
-            GeneralSymbol::State(production.produces.start)
+    for symbol in grammar.get_all_symbols() {
+        insert(
+            &mut graph,
+            GeneralSymbol::Symbol(*symbol),
+            GeneralSymbol::Symbol(*symbol),
+        )
+    }
+
+    for (symbol, dfa) in &grammar.productions {
+        insert(
+            &mut graph,
+            GeneralSymbol::Symbol(*symbol),
+            GeneralSymbol::State(dfa.start),
         );
     }
 
     for ((state, symbol), next_state) in grammar
         .productions
-        .iter()
-        .flat_map(|p| p.produces.transitions.iter())
+        .values()
+        .flat_map(|dfa| dfa.transitions.iter())
     {
         insert(
             &mut graph,
@@ -46,14 +60,28 @@ pub fn find_first_symbols<T: Hash + Eq + Copy>(
 
     let graph = get_transitive_closure(&graph);
 
-    graph
-        .into_iter()
+    let for_states = graph
+        .iter()
         .flat_map(|(key, value)| match key {
             GeneralSymbol::State(s) => vec![(s, value)],
             _ => vec![],
         })
-        .map(|(key, value)| (key, leave_symbols(&value)))
-        .collect()
+        .map(|(key, value)| (*key, leave_symbols(value)))
+        .collect();
+
+    let for_symbols = graph
+        .iter()
+        .flat_map(|(key, value)| match key {
+            GeneralSymbol::Symbol(s) => vec![(s, value)],
+            _ => vec![],
+        })
+        .map(|(key, value)| (*key, leave_symbols(&value)))
+        .collect();
+
+    FirstSymbols {
+        for_states,
+        for_symbols,
+    }
 }
 
 fn insert<T: Eq + Hash + Copy>(map: &mut HashMap<T, HashSet<T>>, key: T, value: T) {

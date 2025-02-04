@@ -19,15 +19,15 @@ fn automatons() {
 
 fn print_regex_grammar<T: std::fmt::Debug>(grammar: &RegexGrammar<T>) {
     println!("Start: {:?}", grammar.start);
-    for prod in &grammar.productions {
-        println!("{:?} -> {:?}", prod.symbol, prod.produces);
+    for (symbol, regex) in &grammar.productions {
+        println!("{:?} -> {:?}", symbol, regex);
     }
 }
 
 fn print_grammar<T: std::fmt::Debug>(grammar: &Grammar<T>) {
     println!("Start: {:?}", grammar.start);
-    for prod in &grammar.productions {
-        println!("{:?} -> {:?}", prod.symbol, prod.produces);
+    for (symbol, dfa) in &grammar.productions {
+        println!("{:?} -> {:?}", symbol, dfa);
     }
 }
 
