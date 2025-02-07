@@ -25,6 +25,13 @@ pub enum ParseError<T> {
     UnexpectedToken(T),
 }
 
+enum Action<T> {
+    Accept,
+    ParseLeaf(State),
+    ParseTree(T, State),
+    Fail(ParseError<T>),
+}
+
 type ParsingResult<T, U> = Result<ParseTree<T, U>, ParseError<T>>;
 
 impl<'a, T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<'a, T> {
@@ -53,41 +60,66 @@ impl<'a, T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<'a, T> {
     }
 
     pub fn parse<U: Token<T>>(&self, mut tokens: TokenStream<U>) -> ParsingResult<T, U> {
-        self._parse(self.grammar.get_start_production(), &mut tokens)
+        self._parse(self.grammar.start, &mut tokens)
     }
 
     fn _parse<U: Token<T>>(
         &self,
-        production: Production<T>,
+        production_symbol: T,
         tokens: &mut TokenStream<U>,
     ) -> ParsingResult<T, U> {
-        let (production_symbol, dfa) = production;
+        let dfa = self.grammar.productions.get(&production_symbol).unwrap();
         let mut state = dfa.start;
         let mut children: Vec<ParseTree<T, U>> = Vec::new();
         loop {
-            let action = tokens.peek().map(|t| t.content()).and_then(|t| {
-                self.action_table
-                    .get(&state)
-                    .and_then(|action_table| action_table.get(t))
-                    .map(|r| (t, r))
-            });
-
-            if let Some((token, (symbol, next_state))) = action {
-                state = *next_state;
-                if symbol == token {
+            match self.get_action(dfa, state, tokens) {
+                Action::Accept => return Ok(ParseTree::Node(production_symbol, children)),
+                Action::Fail(error) => return Err(error),
+                Action::ParseLeaf(next_state) => {
+                    state = next_state;
                     children.push(ParseTree::Leaf(tokens.take()))
-                } else {
-                    let child =
-                        self._parse(self.grammar.get_production(symbol).unwrap(), tokens)?;
-                    children.push(child);
                 }
-            } else if dfa.accepting.contains(&state) {
-                return Ok(ParseTree::Node(*production_symbol, children));
-            } else {
-                return match tokens.peek() {
-                    None => Err(ParseError::UnexpectedEof),
-                    Some(t) => Err(ParseError::UnexpectedToken(*t.content())),
-                };
+                Action::ParseTree(symbol, next_state) => {
+                    state = next_state;
+                    children.push(self._parse(symbol, tokens)?);
+                }
+            }
+        }
+    }
+
+    fn get_action<U: Token<T>>(
+        &'a self,
+        dfa: &Dfa<T>,
+        state: State,
+        tokens: &'a TokenStream<U>,
+    ) -> Action<T> {
+        match (tokens.peek(), self.action_table.get(&state)) {
+            (None, _) | (_, None) => self.accept_or_fail(dfa, state, tokens),
+            (Some(token), Some(table)) => match table.get(token.content()) {
+                None => self.accept_or_fail(dfa, state, tokens),
+                Some((symbol, next_state)) => {
+                    if token.content() == symbol {
+                        Action::ParseLeaf(*next_state)
+                    } else {
+                        Action::ParseTree(*symbol, *next_state)
+                    }
+                }
+            },
+        }
+    }
+
+    fn accept_or_fail<U: Token<T>>(
+        &self,
+        dfa: &Dfa<T>,
+        state: State,
+        tokens: &TokenStream<U>,
+    ) -> Action<T> {
+        if dfa.accepting.contains(&state) {
+            Action::Accept
+        } else {
+            match tokens.peek() {
+                None => Action::Fail(ParseError::UnexpectedEof),
+                Some(token) => Action::Fail(ParseError::UnexpectedToken(*token.content())),
             }
         }
     }

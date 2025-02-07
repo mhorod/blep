@@ -51,7 +51,8 @@ fn print_parse_tree<T: Debug, U: Debug>(tree: &ParseTree<T, U>, indent: usize) {
 fn main() {
     let re_grammar = regex_grammar!(
         "E",
-        "E" => (Atom("T") + Atom("-") + Atom("E")) | Atom("T"),
+        "E" => (Atom("T") + Atom("OP") + Atom("E")) | Atom("T"),
+        "OP" => Atom("+") | Atom("-") | Atom("*") | Atom("/"),
         "T" => (Atom("(") + Atom("E") + Atom(")")) | Atom("Var"),
         "Var" => Atom("x") | Atom("y")
     );
@@ -68,7 +69,7 @@ fn main() {
     let analyzed_grammar = analyze(grammar);
 
     let llone_parser = LLOneParser::new(&analyzed_grammar);
-    let chars = ["x", "-", "(", "x", "-", "y", ")"];
+    let chars = ["(", "x", "+", "x", ")", "*", "(", "x", "-", "y", ")"];
     let result = llone_parser.parse(TokenStream::from_iter(chars));
     println!("{:?}", result);
     if let Ok(tree) = result {
