@@ -1,14 +1,20 @@
+mod regex;
+mod automata;
+mod lexing;
 mod graphs;
 mod parsing;
 
-use parsing::grammar::{analyze, regex::RegexGrammar, Grammar};
-use parsing::parsers::llone::{LLOneParser, ParseTree};
-use parsing::parsers::TokenStream;
+mod blep;
+
+use blep::{blep_lexer, blep_parser};
+
+use parsing::grammar::{regex::RegexGrammar, Grammar};
+use parsing::parsers::llone::{ParseTree};
 use std::fmt::Debug;
 
-use crate::parsing::automata::dfa::Dfa;
-use crate::parsing::automata::nfa::Nfa;
-use crate::parsing::regex::Regex::*;
+use crate::automata::dfa::Dfa;
+use crate::automata::nfa::Nfa;
+use crate::regex::Regex::*;
 
 fn automatons() {
     let re = Atom("a") + (Atom("b") | Atom("c")).star();
@@ -49,30 +55,16 @@ fn print_parse_tree<T: Debug, U: Debug>(tree: &ParseTree<T, U>, indent: usize) {
 }
 
 fn main() {
-    let re_grammar = regex_grammar!(
-        "E",
-        "E" => (Atom("T") + Atom("OP") + Atom("E")) | Atom("T"),
-        "OP" => Atom("+") | Atom("-") | Atom("*") | Atom("/"),
-        "T" => (Atom("(") + Atom("E") + Atom(")")) | Atom("Var"),
-        "Var" => Atom("x") | Atom("y")
-    );
+    let lexer = blep_lexer();
+    let lexed = lexer.lex("let x = 1 in x".to_string());
+    lexed.iter().for_each(|t| println!("{:?}", t));
 
-    println!("Regex grammar:");
-    print_regex_grammar(&re_grammar);
-
-    println!();
-    println!("Deregexed:");
-
-    let grammar = Grammar::from(re_grammar);
-    print_grammar(&grammar);
-
-    let analyzed_grammar = analyze(grammar);
-
-    let llone_parser = LLOneParser::new(&analyzed_grammar);
-    let chars = ["(", "x", "+", "x", ")", "*", "(", "x", "-", "y", ")"];
-    let result = llone_parser.parse(TokenStream::from_iter(chars));
-    println!("{:?}", result);
-    if let Ok(tree) = result {
-        print_parse_tree(&tree, 0);
-    }
+    let parser = blep_parser();
+    let parsed = parser.parse(lexed);
+    
+    match parsed {
+        Ok(parse_tree) => print_parse_tree(&parse_tree, 0),
+        Err(err) => println!("Error: {:?}", err)
+    };
 }
+

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 use crate::graphs::get_transitive_closure;
-use crate::parsing::automata::State;
+use crate::automata::State;
 use crate::parsing::grammar::Grammar;
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]

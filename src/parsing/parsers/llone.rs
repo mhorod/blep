@@ -2,14 +2,16 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate::parsing::automata::{dfa::Dfa, State};
-use crate::parsing::grammar::{AnalyzedGrammar, Grammar, Production};
-use crate::parsing::parsers::{Token, TokenStream};
+use crate::automata::{dfa, State};
+use crate::parsing::grammar::{AnalyzedGrammar, Grammar};
+use crate::parsing::parsers::{Categorized, TokenStream};
+
+type Dfa<T> = dfa::Dfa<T, ()>;
 
 pub type ActionTable<T> = HashMap<State, HashMap<T, (T, State)>>;
 
-pub struct LLOneParser<'a, T> {
-    grammar: &'a Grammar<T>,
+pub struct LLOneParser<T> {
+    grammar: Grammar<T>,
     action_table: ActionTable<T>,
 }
 
@@ -32,10 +34,10 @@ enum Action<T> {
     Fail(ParseError<T>),
 }
 
-type ParsingResult<T, U> = Result<ParseTree<T, U>, ParseError<T>>;
+pub type ParsingResult<T, U> = Result<ParseTree<T, U>, ParseError<T>>;
 
-impl<'a, T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<'a, T> {
-    pub fn new(analyzed_grammar: &'a AnalyzedGrammar<T>) -> Self {
+impl<T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<T> {
+    pub fn new(analyzed_grammar: AnalyzedGrammar<T>) -> Self {
         let mut action_table: ActionTable<T> = ActionTable::new();
 
         for dfa in analyzed_grammar.grammar.productions.values() {
@@ -54,16 +56,16 @@ impl<'a, T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<'a, T> {
         }
 
         Self {
-            grammar: &analyzed_grammar.grammar,
+            grammar: analyzed_grammar.grammar,
             action_table,
         }
     }
 
-    pub fn parse<U: Token<T>>(&self, mut tokens: TokenStream<U>) -> ParsingResult<T, U> {
+    pub fn parse<U: Categorized<T>>(&self, mut tokens: TokenStream<U>) -> ParsingResult<T, U> {
         self._parse(self.grammar.start, &mut tokens)
     }
 
-    fn _parse<U: Token<T>>(
+    fn _parse<U: Categorized<T>>(
         &self,
         production_symbol: T,
         tokens: &mut TokenStream<U>,
@@ -87,18 +89,18 @@ impl<'a, T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<'a, T> {
         }
     }
 
-    fn get_action<U: Token<T>>(
-        &'a self,
+    fn get_action<U: Categorized<T>>(
+        &self,
         dfa: &Dfa<T>,
         state: State,
-        tokens: &'a TokenStream<U>,
+        tokens: &TokenStream<U>,
     ) -> Action<T> {
         match (tokens.peek(), self.action_table.get(&state)) {
             (None, _) | (_, None) => self.accept_or_fail(dfa, state, tokens),
-            (Some(token), Some(table)) => match table.get(token.content()) {
+            (Some(token), Some(table)) => match table.get(&token.get_category()) {
                 None => self.accept_or_fail(dfa, state, tokens),
                 Some((symbol, next_state)) => {
-                    if token.content() == symbol {
+                    if &token.get_category() == symbol {
                         Action::ParseLeaf(*next_state)
                     } else {
                         Action::ParseTree(*symbol, *next_state)
@@ -108,18 +110,18 @@ impl<'a, T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<'a, T> {
         }
     }
 
-    fn accept_or_fail<U: Token<T>>(
+    fn accept_or_fail<U: Categorized<T>>(
         &self,
         dfa: &Dfa<T>,
         state: State,
         tokens: &TokenStream<U>,
     ) -> Action<T> {
-        if dfa.accepting.contains(&state) {
+        if dfa.is_accepting(state) {
             Action::Accept
         } else {
             match tokens.peek() {
                 None => Action::Fail(ParseError::UnexpectedEof),
-                Some(token) => Action::Fail(ParseError::UnexpectedToken(*token.content())),
+                Some(token) => Action::Fail(ParseError::UnexpectedToken(token.get_category())),
             }
         }
     }

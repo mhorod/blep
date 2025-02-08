@@ -1,4 +1,4 @@
-use crate::parsing::automata::State;
+use crate::automata::State;
 use crate::parsing::grammar::*;
 
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -87,8 +87,7 @@ fn accepting_states<T>(grammar: &Grammar<T>) -> Vec<State> {
     grammar
         .productions
         .values()
-        .flat_map(|dfa| dfa.accepting.iter())
-        .copied()
+        .flat_map(|dfa| dfa.get_accepting_states().into_iter())
         .collect()
 }
 

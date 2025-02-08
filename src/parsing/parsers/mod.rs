@@ -7,13 +7,13 @@ pub struct TokenStream<T> {
     tokens: VecDeque<T>,
 }
 
-pub trait Token<T> {
-    fn content(&self) -> &T;
+pub trait Categorized<T> {
+    fn get_category(&self) -> T;
 }
 
-impl<T> Token<T> for T {
-    fn content(&self) -> &Self {
-        self
+impl<T : Copy> Categorized<T> for T {
+    fn get_category(&self) -> Self {
+        *self
     }
 }
 

@@ -68,7 +68,7 @@ impl<T> BitOr<Regex<T>> for Regex<T> {
 
 #[cfg(test)]
 mod test {
-    use crate::parsing::regex::Regex;
+    use super::Regex;
     #[test]
     fn creating_regex() {
         use Regex::*;

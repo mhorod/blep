@@ -1,5 +1,5 @@
-use crate::parsing::automata::{Symbol, State};
-use crate::parsing::regex::Regex;
+use crate::automata::{Symbol, State};
+use crate::regex::Regex;
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -10,7 +10,7 @@ pub struct Nfa<T> {
     pub start: State,
     pub transitions: NfaTransitions<T>,
     pub accepting: State,
-    pub states: State,
+    pub states: u32,
 }
 
 macro_rules! transitions {

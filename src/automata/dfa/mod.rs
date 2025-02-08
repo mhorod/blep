@@ -1,26 +1,20 @@
-use crate::parsing::automata::Symbol;
-use crate::parsing::automata::{nfa::Nfa, State};
-use std::collections::{HashMap, HashSet, VecDeque};
+mod joining;
+
+use crate::automata::Symbol;
+use crate::automata::{nfa::Nfa, State};
+use crate::regex::Regex;
+
+use std::collections::{hash_map::Entry, HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 
 pub type DfaTransitions<T> = HashMap<(State, T), State>;
 
 #[derive(Debug)]
-pub struct Dfa<T> {
+pub struct Dfa<T, R> {
     pub start: State,
     pub transitions: DfaTransitions<T>,
-    pub accepting: HashSet<State>,
-    pub states: State,
-}
-
-impl<T: Eq + Hash> Dfa<T> {
-    pub fn is_accepting(&self, state: State) -> bool {
-        self.accepting.contains(&state)
-    }
-
-    pub fn next(&self, state: State, symbol: T) -> Option<State> {
-        self.transitions.get(&(state, symbol)).copied()
-    }
+    pub accepting: HashMap<State, R>,
+    pub states: u32,
 }
 
 struct EpsClosure {
@@ -110,7 +104,37 @@ impl<T: Eq + Hash + Clone> StateSymbols<T> {
         result
     }
 }
-impl<T> Dfa<T> {
+
+impl<T, R> Dfa<T, R> {
+    pub fn is_accepting(&self, state: State) -> bool {
+        self.accepting.contains_key(&state)
+    }
+
+    pub fn get_accepting_states(&self) -> HashSet<State> {
+        self.accepting.keys().copied().collect()
+    }
+
+    pub fn get_result(&self, state: &State) -> &R {
+        self.accepting.get(state).unwrap()
+    }
+
+    pub fn map_results<S, F>(self, mapper: F) -> Dfa<T, S>
+    where
+        F: Fn(R) -> S,
+    {
+        let accepting = self
+            .accepting
+            .into_iter()
+            .map(|(state, result)| (state, mapper(result)))
+            .collect();
+        Dfa {
+            start: self.start,
+            transitions: self.transitions,
+            accepting,
+            states: self.states,
+        }
+    }
+
     pub fn get_all_symbols(&self) -> Vec<&T> {
         self.transitions
             .iter()
@@ -119,7 +143,18 @@ impl<T> Dfa<T> {
     }
 }
 
-impl<T: Eq + Hash + Clone> Dfa<T> {
+impl<T: Eq + Hash, R> Dfa<T, R> {
+    pub fn next(&self, state: State, symbol: T) -> Option<State> {
+        self.transitions.get(&(state, symbol)).copied()
+    }
+}
+
+
+impl<T: Eq + Hash + Clone> Dfa<T, ()> {
+    pub fn from_regex(regex: Regex<T>) -> Self {
+        Self::from_nfa(Nfa::from_regex(regex))
+    }
+
     pub fn from_nfa(nfa: Nfa<T>) -> Self {
         let state_symbols = StateSymbols::from(&nfa);
         let mut transitions: DfaTransitions<T> = HashMap::new();
@@ -171,10 +206,11 @@ impl<T: Eq + Hash + Clone> Dfa<T> {
             }
         }
 
+        let accepting = accepting_states.into_iter().map(|s| (s, ())).collect();
         Dfa {
             start: 0,
             transitions,
-            accepting: accepting_states,
+            accepting,
             states: state_count,
         }
     }

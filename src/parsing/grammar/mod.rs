@@ -6,11 +6,13 @@ pub mod regex;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate::parsing::automata::{dfa::Dfa, State};
+use crate::automata::{dfa, State};
 use crate::parsing::grammar::{
     first::find_first_symbols, follow::find_follow_symbols, nullable::find_nullable_symbols,
 };
 use std::collections::{HashMap, HashSet};
+
+type Dfa<T> = dfa::Dfa<T, ()>;
 
 pub type Production<'a, T> = (&'a T, &'a Dfa<T>);
 pub struct Grammar<T> {
@@ -42,15 +44,10 @@ impl<T: Eq + Hash + Copy> AnalyzedGrammar<T> {
 }
 
 pub fn analyze<T: Copy + Eq + Hash + Debug>(grammar: Grammar<T>) -> AnalyzedGrammar<T> {
-    println!("{:?}", grammar.get_all_symbols());
     let nullable = find_nullable_symbols(&grammar);
     let first = find_first_symbols(&grammar, &nullable);
     let follow = find_follow_symbols(&grammar, &nullable, &first.for_states);
 
-    println!("Nullable: {:?}", nullable);
-    println!("First for states: {:?}", first.for_states);
-    println!("First for symbols: {:?}", first.for_symbols);
-    println!("Follow: {:?}", follow);
 
     AnalyzedGrammar {
         grammar,

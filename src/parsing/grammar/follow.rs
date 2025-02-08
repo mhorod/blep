@@ -5,7 +5,7 @@ use std::hash::Hash;
 
 use itertools::Itertools;
 
-use crate::parsing::automata::State;
+use crate::automata::State;
 use crate::parsing::grammar::Grammar;
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -16,7 +16,7 @@ enum Fact<T> {
 }
 
 struct FollowFinder<'a, T> {
-    accepting_states: HashMap<T, &'a HashSet<State>>,
+    accepting_states: HashMap<T, HashSet<State>>,
     entering_transitions: HashMap<State, Vec<T>>,
     reversed_nullable_transitions: HashMap<State, Vec<State>>,
     first: &'a HashMap<State, HashSet<T>>,
@@ -101,11 +101,11 @@ impl<'a, T: Eq + Hash + Copy + Debug> FollowFinder<'a, T> {
     }
 }
 
-fn get_accepting_states<T: Eq + Hash + Copy>(grammar: &Grammar<T>) -> HashMap<T, &HashSet<State>> {
+fn get_accepting_states<T: Eq + Hash + Copy>(grammar: &Grammar<T>) -> HashMap<T, HashSet<State>> {
     grammar
         .productions
         .iter()
-        .map(|(symbol, dfa)| (*symbol, &dfa.accepting))
+        .map(|(symbol, dfa)| (*symbol, dfa.get_accepting_states()))
         .collect()
 }
 
