@@ -3,11 +3,10 @@ pub mod lexer;
 pub mod parser;
 pub mod tokens;
 
-use crate::lexing::Token;
 use crate::parsing::grammar::analyze;
 use crate::parsing::parsers::llone::LLOneParser;
-use grammar::{blep_grammar, GrammarSymbol};
-use tokens::{blep_token_categories, TokenCategory};
+use grammar::blep_grammar;
+use tokens::blep_token_categories;
 
 use crate::lexing::lexer::Lexer;
 
@@ -20,5 +19,6 @@ pub fn blep_lexer() -> BlepLexer {
 }
 
 pub fn blep_parser() -> BlepParser {
-    BlepParser::new(LLOneParser::new(analyze(blep_grammar())))
+    let grammar = blep_grammar();
+    BlepParser::new(LLOneParser::new(analyze(grammar)))
 }

@@ -20,7 +20,6 @@ pub struct Grammar<T> {
     pub productions: HashMap<T, Dfa<T>>,
 }
 
-
 pub struct AnalyzedGrammar<T> {
     pub grammar: Grammar<T>,
     pub nullable: HashSet<T>,
@@ -31,12 +30,12 @@ pub struct AnalyzedGrammar<T> {
 impl<T: Eq + Hash + Copy> AnalyzedGrammar<T> {
     pub fn get_first_plus(&self, symbol: &T) -> HashSet<T> {
         if self.nullable.contains(symbol) {
-                [self.first.get(symbol), self.follow.get(symbol)]
-                    .into_iter()
-                    .flat_map(|x| x.into_iter())
-                    .flat_map(|x| x.iter())
-                    .copied()
-                    .collect()
+            [self.first.get(symbol), self.follow.get(symbol)]
+                .into_iter()
+                .flat_map(|x| x.into_iter())
+                .flat_map(|x| x.iter())
+                .copied()
+                .collect()
         } else {
             self.first.get(symbol).unwrap_or(&HashSet::new()).clone()
         }
@@ -47,7 +46,6 @@ pub fn analyze<T: Copy + Eq + Hash + Debug>(grammar: Grammar<T>) -> AnalyzedGram
     let nullable = find_nullable_symbols(&grammar);
     let first = find_first_symbols(&grammar, &nullable);
     let follow = find_follow_symbols(&grammar, &nullable, &first.for_states);
-
 
     AnalyzedGrammar {
         grammar,
@@ -70,6 +68,6 @@ impl<T: Hash + Eq> Grammar<T> {
     }
 
     pub fn get_production(&self, symbol: &T) -> Option<Production<T>> {
-        self.productions.get_key_value(symbol) 
+        self.productions.get_key_value(symbol)
     }
 }

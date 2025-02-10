@@ -1,30 +1,17 @@
-use crate::automata::{dfa::*, nfa};
+use crate::automata::dfa::*;
 use crate::parsing::grammar::*;
 use crate::regex::Regex;
 use std::hash::Hash;
 
-use std::collections::HashSet;
-
 type Dfa<T> = dfa::Dfa<T, ()>;
 
+pub type Productions<T> = HashMap<T, Regex<T>>;
 pub struct RegexGrammar<T> {
     pub start: T,
-    pub productions: HashMap<T, Regex<T>>,
+    pub productions: Productions<T>,
 }
 
-#[macro_export]
-macro_rules! regex_grammar {
-    ($start:expr, $($symbol:expr => $regex:expr),*) => {
-        $crate::parsing::grammar::regex::RegexGrammar {
-            start: $start,
-            productions: std::collections::HashMap::from([$(($symbol, $regex)),*
-            ])
-        }
-
-    };
-}
-
-fn add_to_states<T: Hash + Eq>(dfa: Dfa<T>, add: u32) -> Dfa<T> {
+fn add_to_states<T: Clone + Hash + Eq>(dfa: Dfa<T>, add: u32) -> Dfa<T> {
     let start = dfa.start + add;
     let accepting: HashMap<State, ()> = dfa
         .get_accepting_states()
@@ -38,15 +25,10 @@ fn add_to_states<T: Hash + Eq>(dfa: Dfa<T>, add: u32) -> Dfa<T> {
         .map(|((state, symbol), next_state)| ((state + add, symbol), next_state + add))
         .collect();
 
-    Dfa {
-        start,
-        transitions,
-        accepting,
-        states,
-    }
+    Dfa::new(start, transitions, accepting, states)
 }
 
-impl<T: Clone + Eq + Hash> From<RegexGrammar<T>> for Grammar<T> {
+impl<T: Clone + Eq + Hash + Debug> From<RegexGrammar<T>> for Grammar<T> {
     fn from(grammar: RegexGrammar<T>) -> Self {
         let productions: HashMap<T, Dfa<T>> = grammar
             .productions

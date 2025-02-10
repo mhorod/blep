@@ -1,4 +1,4 @@
-use crate::automata::{Symbol, State};
+use crate::automata::{State, Symbol};
 use crate::regex::Regex;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -25,12 +25,22 @@ impl<T: Eq + Hash + Clone> Nfa<T> {
     pub fn from_regex(regex: Regex<T>) -> Self {
         use Regex::*;
         match regex {
+            Epsilon => Self::epsilon_nfa(),
             Atom(a) => Self::atom_nfa(a),
             Union(regexes) => Self::nfa_union(regexes.into_iter().map(Self::from_regex).collect()),
             Concat(regexes) => {
                 Self::nfa_concat(regexes.into_iter().map(Self::from_regex).collect())
             }
             Star(regex) => Self::nfa_star(Self::from_regex(*regex)),
+        }
+    }
+
+    fn epsilon_nfa() -> Self {
+        Nfa {
+            start: 0,
+            transitions: HashMap::new(),
+            states: 1,
+            accepting: 0,
         }
     }
 

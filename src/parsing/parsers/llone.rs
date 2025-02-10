@@ -27,27 +27,27 @@ pub enum ParseError<T> {
     UnexpectedToken(T),
 }
 
-enum Action<T> {
+enum Action<T, U> {
     Accept,
     ParseLeaf(State),
     ParseTree(T, State),
-    Fail(ParseError<T>),
+    Fail(ParseError<U>),
 }
 
-pub type ParsingResult<T, U> = Result<ParseTree<T, U>, ParseError<T>>;
+pub type ParsingResult<T, U> = Result<ParseTree<T, U>, ParseError<U>>;
 
 impl<T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<T> {
     pub fn new(analyzed_grammar: AnalyzedGrammar<T>) -> Self {
         let mut action_table: ActionTable<T> = ActionTable::new();
 
-        for dfa in analyzed_grammar.grammar.productions.values() {
+        for (production_symbol, dfa) in analyzed_grammar.grammar.productions.iter() {
             for ((state, symbol), next_state) in &dfa.transitions {
                 for first_plus_symbol in analyzed_grammar.get_first_plus(symbol) {
                     let state_action_table = action_table.entry(*state).or_default();
-                    if state_action_table.contains_key(&first_plus_symbol) {
+                    if let Some(existing) = state_action_table.get(&first_plus_symbol) {
                         panic!(
-                            "Not an LL1 grammar, ambiguous action on ({:?}, {:?})",
-                            state, symbol
+                            "Not an LL1 grammar, ambiguous action on symbol {:?} in state {:?} in production {:?}. Existing action: {:?}",
+                            first_plus_symbol, state, production_symbol, existing
                         );
                     }
                     state_action_table.insert(first_plus_symbol, (*symbol, *next_state));
@@ -61,11 +61,11 @@ impl<T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<T> {
         }
     }
 
-    pub fn parse<U: Categorized<T>>(&self, mut tokens: TokenStream<U>) -> ParsingResult<T, U> {
+    pub fn parse<U: Categorized<T> + Clone>(&self, mut tokens: TokenStream<U>) -> ParsingResult<T, U> {
         self._parse(self.grammar.start, &mut tokens)
     }
 
-    fn _parse<U: Categorized<T>>(
+    fn _parse<U: Categorized<T> + Clone>(
         &self,
         production_symbol: T,
         tokens: &mut TokenStream<U>,
@@ -89,12 +89,12 @@ impl<T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<T> {
         }
     }
 
-    fn get_action<U: Categorized<T>>(
+    fn get_action<U: Categorized<T> + Clone>(
         &self,
         dfa: &Dfa<T>,
         state: State,
         tokens: &TokenStream<U>,
-    ) -> Action<T> {
+    ) -> Action<T, U> {
         match (tokens.peek(), self.action_table.get(&state)) {
             (None, _) | (_, None) => self.accept_or_fail(dfa, state, tokens),
             (Some(token), Some(table)) => match table.get(&token.get_category()) {
@@ -110,18 +110,18 @@ impl<T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<T> {
         }
     }
 
-    fn accept_or_fail<U: Categorized<T>>(
+    fn accept_or_fail<U: Categorized<T> + Clone>(
         &self,
         dfa: &Dfa<T>,
         state: State,
         tokens: &TokenStream<U>,
-    ) -> Action<T> {
+    ) -> Action<T, U> {
         if dfa.is_accepting(state) {
             Action::Accept
         } else {
             match tokens.peek() {
                 None => Action::Fail(ParseError::UnexpectedEof),
-                Some(token) => Action::Fail(ParseError::UnexpectedToken(token.get_category())),
+                Some(token) => Action::Fail(ParseError::UnexpectedToken(token.clone())),
             }
         }
     }

@@ -1,29 +1,16 @@
-mod regex;
 mod automata;
-mod lexing;
 mod graphs;
+mod lexing;
 mod parsing;
+mod regex;
 
 mod blep;
 
 use blep::{blep_lexer, blep_parser};
 
 use parsing::grammar::{regex::RegexGrammar, Grammar};
-use parsing::parsers::llone::{ParseTree};
+use parsing::parsers::llone::ParseTree;
 use std::fmt::Debug;
-
-use crate::automata::dfa::Dfa;
-use crate::automata::nfa::Nfa;
-use crate::regex::Regex::*;
-
-fn automatons() {
-    let re = Atom("a") + (Atom("b") | Atom("c")).star();
-    println!("{:?}", re);
-    let nfa = Nfa::from_regex(re);
-    println!("{:?}", nfa);
-    let dfa = Dfa::from_nfa(nfa);
-    println!("{:?}", dfa);
-}
 
 fn print_regex_grammar<T: std::fmt::Debug>(grammar: &RegexGrammar<T>) {
     println!("Start: {:?}", grammar.start);
@@ -39,32 +26,54 @@ fn print_grammar<T: std::fmt::Debug>(grammar: &Grammar<T>) {
     }
 }
 
-fn print_parse_tree<T: Debug, U: Debug>(tree: &ParseTree<T, U>, indent: usize) {
-    print!("{}", "  ".repeat(indent));
+fn print_parse_tree<T: Debug, U: Debug>(tree: &ParseTree<T, U>, indent: String, last: bool) {
+    print!("{}", indent);
     match tree {
         ParseTree::Leaf(token) => {
-            println!("{:?}", token);
+            if last {
+                println!("└─{:?}", token);
+            } else {
+                println!("─{:?}", token);
+            }
         }
         ParseTree::Node(symbol, children) => {
-            println!("{:?}", symbol);
-            for child in children {
-                print_parse_tree(child, indent + 1);
+            if last {
+                println!("└─{:?}", symbol);
+            } else {
+                println!("─{:?}", symbol);
+            }
+            let child_indent = indent.clone() + "  │";
+            for (i, child) in children.iter().enumerate() {
+                if i == children.len() - 1 {
+                    print_parse_tree(child, indent.clone() + "  ", true);
+                } else {
+                    print_parse_tree(child, child_indent.clone(), false);
+                }
             }
         }
     }
 }
 
 fn main() {
+    let program = r#"
+        struct Foo[X](x: X, y: Int)
+        interface I { fun clone() -> Int }
+        class Bar(x: Int, y: Int) implements I {
+            fun foo() = 0
+        }
+        
+        fun f(a: A) = a
+        "#;
+
     let lexer = blep_lexer();
-    let lexed = lexer.lex("let x = 1 in x".to_string());
+    let lexed = lexer.lex(program.to_string());
     lexed.iter().for_each(|t| println!("{:?}", t));
 
     let parser = blep_parser();
     let parsed = parser.parse(lexed);
-    
+
     match parsed {
-        Ok(parse_tree) => print_parse_tree(&parse_tree, 0),
-        Err(err) => println!("Error: {:?}", err)
+        Ok(parse_tree) => print_parse_tree(&parse_tree, "".to_string(), true),
+        Err(err) => println!("Error: {:?}", err),
     };
 }
-

@@ -8,5 +8,5 @@ pub type State = u32;
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub enum Symbol<T> {
     Empty,
-    Symbol(T)
+    Symbol(T),
 }

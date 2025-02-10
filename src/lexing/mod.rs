@@ -1,21 +1,23 @@
 pub mod lexer;
 
 use std::fmt::Debug;
-
+use std::ops::Range;
 use crate::regex::Regex;
 
-#[derive(Eq, PartialEq, Hash, Debug)]
+#[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub struct Token<C> {
+    pub range: Range<usize>,
     pub content: String,
     pub category: C,
 }
 
-#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+#[derive(PartialOrd, Ord, PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum LexerSymbol {
     Concrete(char),
+    Digit,
     Lowercase,
     Uppercase,
-    Digit,
+    Not(char),
 }
 
 pub type Categories<C> = Vec<Category<C>>;

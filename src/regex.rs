@@ -1,7 +1,8 @@
 use std::ops::{Add, BitOr};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Regex<T> {
+    Epsilon,
     Atom(T),
     Union(Vec<Regex<T>>),
     Concat(Vec<Regex<T>>),
@@ -13,10 +14,9 @@ impl<T> Regex<T> {
         Regex::Star(Box::new(self))
     }
 }
-
-impl<T> From<T> for Regex<T> {
-    fn from(value: T) -> Self {
-        Regex::Atom(value)
+impl<T: Clone> Regex<T> {
+    pub fn plus(self) -> Self {
+        self.clone() + self.star()
     }
 }
 
@@ -34,9 +34,10 @@ impl<T> Add<Regex<T>> for Regex<T> {
                 v1.push(r);
                 Concat(v1)
             }
-            (r, Concat(mut v2)) => {
-                v2.push(r);
-                Concat(v2)
+            (r, Concat(v2)) => {
+                let mut v = vec![r];
+                v.extend(v2);
+                Concat(v)
             }
             (lhs, rhs) => Concat(vec![lhs, rhs]),
         }
@@ -73,6 +74,13 @@ mod test {
     fn creating_regex() {
         use Regex::*;
         let re: Regex<i32> = Atom(1) | (Atom(2) + Atom(3) + Atom(4)) | Atom(5).star();
-        assert_eq!(re, Union(vec![Atom(1), Concat(vec![Atom(2), Atom(3), Atom(4)]), Star(Box::new(Atom(5)))]))
+        assert_eq!(
+            re,
+            Union(vec![
+                Atom(1),
+                Concat(vec![Atom(2), Atom(3), Atom(4)]),
+                Star(Box::new(Atom(5)))
+            ])
+        )
     }
 }
