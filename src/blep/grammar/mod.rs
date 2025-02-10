@@ -2,10 +2,9 @@ mod utils;
 
 use super::tokens::*;
 use crate::parsing::grammar::Grammar;
-use crate::parsing::grammar::regex::Productions;
 use crate::regex::Regex::Atom;
 
-use crate::{tok, kw, symb, lit, regex_grammar, grammar_productions};
+use crate::{tok, kw, symb, lit, regex_grammar};
 
 use utils::*;
 

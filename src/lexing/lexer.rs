@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::Debug;
 
 use crate::automata::{dfa::Dfa, dfa::Wildcards, State};
