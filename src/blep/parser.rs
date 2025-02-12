@@ -19,19 +19,25 @@ impl BlepParser {
     pub fn parse(
         &self,
         mut tokens: Vec<Token<TokenCategory>>,
-    ) -> ParsingResult<GrammarSymbol, Token<TokenCategory>> {
-        let end = tokens.last().unwrap().range.end;
+    ) -> ParsingResult<GrammarSymbol, Token<GrammarSymbol>> {
+        let end = tokens.last().map(|t| t.range.end).unwrap_or(0);
         tokens.push(Token {
             range: end..end,
             content: String::new(),
             category: TokenCategory::Eof,
         });
+        let tokens = tokens.into_iter().map(|t| Token {
+            range: t.range,
+            content: t.content,
+            category: GrammarSymbol::Token(t.category)
+        });
+
         self.parser.parse(TokenStream::from_iter(tokens))
     }
 }
 
-impl Categorized<GrammarSymbol> for Token<TokenCategory> {
-    fn get_category(&self) -> GrammarSymbol {
-        GrammarSymbol::Token(self.category)
+impl Categorized<GrammarSymbol> for Token<GrammarSymbol> {
+    fn get_category(&self) -> &GrammarSymbol {
+        &self.category
     }
 }

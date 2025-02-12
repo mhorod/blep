@@ -8,12 +8,12 @@ pub struct TokenStream<T> {
 }
 
 pub trait Categorized<T> {
-    fn get_category(&self) -> T;
+    fn get_category(&self) -> &T;
 }
 
 impl<T : Copy> Categorized<T> for T {
-    fn get_category(&self) -> Self {
-        *self
+    fn get_category(&self) -> &Self {
+        self
     }
 }
 

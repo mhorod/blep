@@ -46,6 +46,7 @@ fn blep_keywords() -> Categories<TokenCategory> {
         Keyword(Enum) => string_atom("enum"),
         Keyword(Public) => string_atom("public"),
         Keyword(Private) => string_atom("private"),
+        Keyword(Internal) => string_atom("internal"),
         Keyword(Return) => string_atom("return"),
 
         // module keywords
@@ -157,6 +158,7 @@ pub enum KeywordKind {
     Enum,
     Public,
     Private,
+    Internal,
     Return,
 
     Module,

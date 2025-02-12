@@ -4,7 +4,7 @@ use super::tokens::*;
 use crate::parsing::grammar::Grammar;
 use crate::regex::Regex::Atom;
 
-use crate::{tok, kw, symb, lit, regex_grammar};
+use crate::{kw, lit, regex_grammar, symb, tok};
 
 use utils::*;
 
@@ -52,15 +52,15 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
             kw!(Enum)
             + tok!(TypeName)
             + optional(Atom(GenericParams))
-            + delimited(separated(Atom(EnumVariant), symb!(Comma)), Brace),
+            + delimited(optional(separated(Atom(EnumVariant), symb!(Comma))), Brace),
 
         StructDef =>
             (kw!(Struct) | kw!(Class))
             + tok!(TypeName)
             + optional(Atom(GenericParams))
-            + delimited(separated(Atom(StructField), symb!(Comma)), Paren)
+            + Atom(StructFields)
             + optional(Atom(ImplementsDef))
-            + optional(Atom(StructMethods)),
+            + Atom(StructMethods),
 
         InterfaceDef =>
             kw!(Interface)
@@ -68,6 +68,7 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
             + optional(Atom(GenericParams))
             + optional(Atom(InterfaceMethods)),
 
+        StructFields => delimited(optional(separated(Atom(StructField), symb!(Comma))), Paren),
         StructField =>
             optional(Atom(Visibility))
             + optional(kw!(Mut))
@@ -80,11 +81,14 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
             + interspersed(Atom(Type), symb!(Comma)),
 
         StructMethods =>
-            delimited(Atom(FunDef).star(), Brace),
+            delimited(Atom(StructMethod).star(), Brace),
+        StructMethod => optional(Atom(Visibility)) + Atom(FunDef),
+
 
         InterfaceMethods => delimited(Atom(InterfaceMethod).star(), Brace),
-        InterfaceMethod => 
-            kw!(Fun)
+        InterfaceMethod =>
+            Atom(FunModifiers)
+            + kw!(Fun)
             + tok!(Identifier)
             + Atom(TypedFunParams)
             + symb!(Arrow) + Atom(Type),
@@ -93,7 +97,7 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
         EnumVariant => tok!(TypeName) + optional(delimited(interspersed(Atom(Type), symb!(Comma)),Paren)),
 
         FunModifiers => optional(kw!(Pure)),
-        Visibility => kw!(Public) | kw!(Private),
+        Visibility => kw!(Public) | kw!(Private) | kw!(Internal),
 
         FunParams => optional(Atom(GenericParams)) + Atom(FunValueParams),
         FunValueParams => delimited(optional(interspersed(Atom(FunParam), symb!(Comma))), Paren),
@@ -111,16 +115,19 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
         LetDecl =>
             (kw!(Let) + optional(kw!(Mut)) + tok!(Identifier) + symb!(Eq) + Atom(Expr) + optional(kw!(In) + Atom(Expr)))
         ,
-        Expr => Atom(AddLevel),
+        Expr => Atom(AssignmentLevel),
 
         // operator levels
+        AssignmentLevel => Atom(AddLevel) + (
+            (symb!(Eq) | symb!(PlusEq) | symb!(MinusEq)) + Atom(AddLevel)).star(),
         AddLevel => Atom(MulLevel) + ((symb!(Plus) | symb!(Minus)) + Atom(MulLevel)).star(),
-        MulLevel => Atom(DerefLevel) + ((symb!(Asterisk) | symb!(Slash)) + Atom(FunCallLevel)).star(),
+        MulLevel => Atom(DerefLevel) + ((symb!(Asterisk) | symb!(Slash)) + Atom(DerefLevel)).star(),
         DerefLevel =>
             Atom(FunCallLevel)
             | ((symb!(Asterisk) | symb!(Ampersand)) + Atom(DerefLevel)) ,
-        FunCallLevel => Atom(MemberAccessLevel) + Atom(FunCall).star(),
-        MemberAccessLevel => Atom(ExprTerm) + ((symb!(Dot) | symb!(Arrow)) + tok!(Identifier)).star(),
+        FunCallLevel => Atom(ExprTerm)
+            +(Atom(FunCall) | Atom(MemberAccess)).star(),
+        MemberAccess => ((symb!(Dot) | symb!(Arrow)) + tok!(Identifier)),
 
 
         FunCall => delimited(optional(interspersed(Atom(Expr), symb!(Comma))), Paren),
@@ -131,16 +138,29 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
             | delimited(interspersed(Atom(Expr), symb!(Comma)), Paren)
             | delimited(Atom(Expr), Paren)
             ,
-        ExprTerm => lit!(IntLiteral) | lit!(StringLiteral) | tok!(Identifier) | Atom(Block) | Atom(LetDecl) | Atom(Parens),
-        Block => empty_delims(Brace) | delimited(interspersed(Atom(Expr), symb!(Semicolon)), Brace),
+        ExprTerm => lit!(IntLiteral)
+            | lit!(StringLiteral)
+            | Atom(QualifiedIdentifier)
+            | Atom(Block)
+            | Atom(LetDecl)
+            | Atom(Parens),
+
+        QualifiedIdentifier => (tok!(TypeName) + symb!(DoubleColon)).star() + (tok!(Identifier) | tok!(TypeName)),
+
+        Block => empty_delims(Brace) | delimited(separated(Atom(Expr), symb!(Semicolon)), Brace),
         IfExpr => kw!(If) + Atom(Expr) + kw!(Then) + Atom(Expr) + kw!(Else) + Atom(Expr),
 
-        Type => tok!(TypeName) | Atom(PtrType) | Atom(RefType) | Atom(GenericType) | Atom(FunOrTupleType),
+        Type => Atom(PtrType) | Atom(RefType) | Atom(FunOrTupleType) | Atom(QualifiedGenericType),
         PtrType => (symb!(Asterisk) | kw!(MutPtr)) + Atom(Type),
         RefType => (symb!(Ampersand) | kw!(MutRef)) + Atom(Type),
         FunOrTupleType =>
-            delimited(interspersed(Atom(Type), symb!(Comma)), Paren)
-            | (delimited(interspersed(Atom(Type), symb!(Comma)), Paren) + symb!(Arrow) + Atom(Type))
+            delimited(interspersed(Atom(Type), symb!(Comma)), Paren) + optional(symb!(Arrow) + Atom(Type)),
+        QualifiedGenericType =>
+            tok!(TypeName)
+            + (symb!(DoubleColon) + tok!(TypeName)).star()
+            + optional(Atom(GenericArgs)),
+
+        GenericArgs => delimited(interspersed(Atom(Type), symb!(Comma)), Bracket)
     );
 
     re_grammar.into()
@@ -151,6 +171,8 @@ pub enum GrammarSymbol {
     // top level
     Program,
     Item,
+
+    // Items
     FunDef,
     EnumDef,
     NewTypeDef,
@@ -158,26 +180,33 @@ pub enum GrammarSymbol {
     StructDef,
     InterfaceDef,
 
+    // Modifiers
     Visibility,
     FunModifiers,
 
     EnumVariant,
 
+    // Struct
+    StructFields,
     StructField,
     ImplementsDef,
     StructMethods,
+    StructMethod,
+
+    // Interface
     InterfaceMethods,
     InterfaceMethod,
 
-
+    // Functions
     TypedFunParams,
     TypedFunParam,
     FunParams,
-    GenericParams,
     FunValueParams,
     FunParam,
 
     Token(TokenCategory),
+
+    // Expressions
     LetDecl,
     Expr,
     ExprTerm,
@@ -185,17 +214,22 @@ pub enum GrammarSymbol {
     Parens,
     Block,
     IfExpr,
+    QualifiedIdentifier,
 
     // Operator levels
+    AssignmentLevel,
     AddLevel,
     MulLevel,
     DerefLevel,
     FunCallLevel,
-    MemberAccessLevel,
+    MemberAccess,
 
+    // Types
     Type,
     RefType,
     PtrType,
-    GenericType,
     FunOrTupleType,
+    QualifiedGenericType,
+    GenericParams,
+    GenericArgs,
 }

@@ -21,6 +21,15 @@ pub enum ParseTree<T, U> {
     Node(T, Vec<ParseTree<T, U>>),
 }
 
+impl <T, U: Categorized<T>> ParseTree<T, U> {
+    pub fn get_category(&self) -> &T {
+        match self {
+            ParseTree::Leaf(token) => token.get_category(),
+            ParseTree::Node(symbol, _) => symbol
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ParseError<T> {
     UnexpectedEof,
@@ -97,10 +106,10 @@ impl<T: PartialEq + Eq + Hash + Copy + Debug> LLOneParser<T> {
     ) -> Action<T, U> {
         match (tokens.peek(), self.action_table.get(&state)) {
             (None, _) | (_, None) => self.accept_or_fail(dfa, state, tokens),
-            (Some(token), Some(table)) => match table.get(&token.get_category()) {
+            (Some(token), Some(table)) => match table.get(token.get_category()) {
                 None => self.accept_or_fail(dfa, state, tokens),
                 Some((symbol, next_state)) => {
-                    if &token.get_category() == symbol {
+                    if token.get_category() == symbol {
                         Action::ParseLeaf(*next_state)
                     } else {
                         Action::ParseTree(*symbol, *next_state)
