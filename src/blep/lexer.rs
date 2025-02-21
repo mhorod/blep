@@ -11,6 +11,7 @@ impl BlepLexer {
             .lex(input)
             .into_iter()
             .filter(|t| !matches!(t.category, TokenCategory::Whitespace))
+            .filter(|t| !matches!(t.category, TokenCategory::Comment))
             .collect()
     }
 

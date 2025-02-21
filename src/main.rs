@@ -1,16 +1,18 @@
+mod pipeline;
+mod ast;
 mod automata;
+mod blep;
 mod graphs;
 mod lexing;
 mod parsing;
 mod regex;
-mod ast;
-mod blep;
 
 use blep::{blep_lexer, blep_parser};
 
+use ast::display::print_ast;
+use ast::generate::build_ast;
 use parsing::grammar::{regex::RegexGrammar, Grammar};
 use parsing::parsers::llone::ParseTree;
-use ast::generate::build_ast;
 
 use std::fmt::Debug;
 
@@ -56,42 +58,25 @@ fn print_parse_tree<T: Debug, U: Debug>(tree: &ParseTree<T, U>, indent: String, 
     }
 }
 
+fn load_example_from_file(path: &str) -> String {
+    use std::fs::File;
+    use std::io::Read;
+
+    let mut file = File::open(path).unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+    contents
+}
 
 fn main() {
-    let program = r#"
-        struct Foo(internal mut x: Int, y: Int)
-        interface I {
-            pure fun f(self: Self, x: Int) -> Int
-        }
+    let args = std::env::args().collect::<Vec<String>>();
 
-        class C(a: Int) implements I {
-            public fun new(a) = C(a)
-            public pure fun f(self, x) = let y = a * x in x + y
-        }
-
-        fun ptrs(ref: &Int, ptr: *mut Int) = { *ptr = *ref; }
-
-        fun main() = C::new(10).f(42)
-        "#;
-
-
-    let program2 = r#"
-        struct S(x: Int) {}
-        "#;
-
-    let lexer = blep_lexer();
-    let lexed = lexer.lex(program2.to_string());
-    lexed.iter().for_each(|t| println!("{:?}", t));
-
-    let parser = blep_parser();
-    let parsed = parser.parse(lexed);
-
-    match parsed {
-        Ok(parse_tree) => {
-            print_parse_tree(&parse_tree, "".to_string(), true);
-            let ast = build_ast(parse_tree);
-            println!("AST: {:?}", ast);
-        },
-        Err(err) => println!("Error: {:?}", err),
+    let program = if args.len() > 1 {
+        load_example_from_file(&args[1])
+    } else {
+        return;
     };
+
+    let pipeline = pipeline::BlepPipeline::new();
+    pipeline.parse(&program).unwrap();
 }

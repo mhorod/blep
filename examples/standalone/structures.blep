@@ -1,0 +1,14 @@
+// There are two kinds of structures like in C++: structs and classes
+// The difference is in default visibility of the fields and methods:
+// - for structs all fields and methods are public by default
+// - for classes all fields and methods are private by default
+
+struct Point(x: Int, y: Int) {
+  static pure fun zero() = Point(0, 0)
+  
+  // For methods, variables resolve to fields
+  mut fun translate(dx, dy) = { x += dx; y += dy; } 
+
+  // It is possible to explicitly refer to the fields via `self` pointer
+  mut fun set_x(x) = { self->x = x; }
+}

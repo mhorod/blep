@@ -1,6 +1,7 @@
 pub mod display;
 pub mod generate;
 
+use std::fmt::Debug;
 use std::ops::Range;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -31,7 +32,7 @@ impl Span {
         Self { begin, end }
     }
     fn is_dummy(&self) -> bool {
-        return self.begin == 0 && self.end == 0;
+        self.begin == 0 && self.end == 0
     }
     fn dummy() -> Self {
         Self { begin: 0, end: 0 }
@@ -55,9 +56,34 @@ pub struct Item {
 pub enum ItemKind {
     Enum(Enum),
     Struct(Struct),
-    Fun,
-    NewType,
-    TypeAlias,
+    Interface(Interface),
+    Fun(Fun),
+    NewType(NewType),
+    TypeAlias(TypeAlias),
+}
+
+#[derive(Debug, Clone)]
+pub struct Purity {
+    span: Span,
+    kind: PurityKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum PurityKind {
+    Pure,
+    Impure,
+}
+
+#[derive(Debug, Clone)]
+pub struct Staticity {
+    span: Span,
+    kind: StaticityKind,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum StaticityKind {
+    Static,
+    Instance,
 }
 
 #[derive(Debug, Clone)]
@@ -88,7 +114,8 @@ pub enum MutabilityKind {
 #[derive(Debug, Clone)]
 pub struct Enum {
     span: Span,
-    generics: Vec<TyName>,
+    ident: Ident,
+    generic_params: Vec<TyName>,
     variants: Vec<EnumVariant>,
 }
 
@@ -96,7 +123,30 @@ pub struct Enum {
 pub struct EnumVariant {
     id: AstNodeId,
     span: Span,
+    ident: Ident,
+    fields: Vec<Ty>,
 }
+
+#[derive(Debug, Clone)]
+pub struct Interface {
+    span: Span,
+    ident: Ident,
+    generic_params: Vec<TyName>,
+    methods: Vec<InterfaceMethod>
+}
+
+#[derive(Debug, Clone)]
+pub struct InterfaceMethod {
+    id: AstNodeId,
+    span: Span,
+    staticity: Staticity,
+    mutability: Mutability,
+    purity: Purity,
+    ident: Ident,
+    params: Vec<FunParam>,
+    return_ty: Ty,
+}
+
 
 #[derive(Debug, Clone)]
 pub struct Struct {
@@ -108,6 +158,7 @@ pub struct Struct {
     implements: Vec<Ty>,
     methods: Vec<StructMethod>,
 }
+
 
 #[derive(Debug, Clone)]
 pub enum StructKind {
@@ -127,7 +178,39 @@ pub struct StructField {
 #[derive(Debug, Clone)]
 pub struct StructMethod {
     id: AstNodeId,
+    span: Span,
+    visibility: Visibility,
+    staticity: Staticity,
+    mutability: Mutability,
+    fun: Fun,
 }
+
+#[derive(Debug, Clone)]
+pub struct Fun {
+    id: AstNodeId,
+    ident: Ident,
+    span: Span,
+    purity: Purity,
+    generic_params: Vec<TyName>,
+    params: Vec<FunParam>,
+    return_ty: Ty,
+    expr: Expr,
+}
+
+#[derive(Debug, Clone)]
+pub struct FunParam {
+    id: AstNodeId,
+    ident: Ident,
+    span: Span,
+    mutability: Mutability,
+    ty: Ty,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewType {}
+
+#[derive(Debug, Clone)]
+pub struct TypeAlias {}
 
 #[derive(Debug, Clone)]
 pub struct TyName {
@@ -145,9 +228,10 @@ pub struct Ty {
 
 #[derive(Debug, Clone)]
 pub enum TyKind {
+    Omitted,
     Primitive(PrimitiveTy),
-    Ref(Box<Ty>),
-    Ptr(Box<Ty>),
+    Ref(Mutability, Box<Ty>),
+    Ptr(Mutability, Box<Ty>),
     Tuple(Vec<Ty>),
     Fun(FunTy),
 }
@@ -164,12 +248,212 @@ pub struct FunTy {
     result: Box<Ty>,
 }
 
+#[derive(Debug, Clone)]
+pub struct Expr {
+    id: AstNodeId,
+    span: Span,
+    kind: ExprKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum ExprKind {
+    IntLiteral(IntLiteral),
+    FloatLiteral(FloatLiteral),
+    BoolLiteral(BoolLiteral),
+    StringLiteral(StringLiteral),
+    QualifiedIdentifier(Vec<Identifier>),
+    MemberAccess(Box<Expr>, Ident),
+    PointerMemberAccess(Box<Expr>, Ident),
+    FunCall(Box<Expr>, Vec<Expr>),
+    Unary(UnaryOperator, Box<Expr>),
+    Binary(Box<Expr>, BinaryOperator, Box<Expr>),
+    Block(Block),
+    If(If),
+    Empty,
+    Break,
+    Continue
+}
+
+#[derive(Debug, Clone)]
+pub struct If {
+    id: AstNodeId,
+    span: Span,
+    condition: Box<Expr>,
+    then_block: Block,
+    else_block: Block,
+}
+
+#[derive(Debug, Clone)]
+pub struct Block {
+    id: AstNodeId,
+    span: Span,
+    stmts: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Let {
+    span: Span,
+    mutability: Mutability,
+    ident: Ident,
+    ty: Ty,
+    expr: Box<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Stmt {
+    id: AstNodeId,
+    span: Span,
+    kind: StmtKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum StmtKind {
+    Expr(Expr),
+    Let(Let),
+    For(For),
+    While(While),
+    Loop(Loop),
+}
+
+#[derive(Debug, Clone)]
+pub struct For {
+    span: Span,
+    identifier: Identifier,
+    range: RangeExpr,
+    body: Block
+}
+
+#[derive(Debug, Clone)]
+pub struct While {
+    id: AstNodeId,
+    span: Span,
+    condition: Expr,
+    body: Block
+}
+
+
+#[derive(Debug, Clone)]
+pub struct Loop {
+    id: AstNodeId,
+    span: Span,
+    body: Block
+}
+
+#[derive(Debug, Clone)]
+pub struct RangeExpr {
+    id: AstNodeId,
+    span: Span,
+    kind: RangeKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum RangeKind {
+    Open(Box<Expr>, Box<Expr>),
+    Closed(Box<Expr>, Box<Expr>),
+}
+
+
+#[derive(Debug, Clone)]
+pub struct Identifier {
+    id: AstNodeId,
+    span: Span,
+    ident: Ident,
+}
+
+#[derive(Debug, Clone)]
+pub struct IntLiteral {
+    content: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct FloatLiteral {
+    content: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct StringLiteral {
+    content: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct BoolLiteral {
+    content: String,
+}
+
+
+#[derive(Debug, Clone)]
+pub enum UnaryOperator {
+    Deref,
+    Ref,
+    Minus,
+    Neg,
+    Not,
+}
+
+#[derive(Debug, Clone)]
+pub enum BinaryOperator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    And,
+    Or,
+
+    BitShiftLeft,
+    BitShiftRight,
+    BitAnd,
+    BitOr,
+    Xor,
+
+    Eq,
+    Neq,
+    Lt,
+    Leq,
+    Gt,
+    Geq,
+
+    Assign,
+    AddAssign,
+    SubAssign,
+    MulAssign,
+    DivAssign,
+    ModAssign,
+    XorAssign,
+    BitAndAssign,
+    BitOrAssign,
+    BitShiftLeftAssign,
+    BitShiftRightAssign,
+}
+
 impl ItemKind {
     fn span(&self) -> Span {
         match self {
             ItemKind::Enum(e) => e.span,
             ItemKind::Struct(s) => s.span,
             _ => Span::dummy(),
+        }
+    }
+}
+
+impl Ty {
+    fn omitted(id: AstNodeId) -> Self {
+        Ty {
+            id,
+            span: Span::dummy(),
+            kind: TyKind::Omitted,
+        }
+    }
+}
+
+impl StmtKind {
+    fn span(&self) -> Span {
+        match self {
+            StmtKind::Expr(e) => e.span,
+            StmtKind::Let(l) => l.span,
+            StmtKind::For(f) => f.span,
+            StmtKind::While(w) => w.span,
+            StmtKind::Loop(l) => l.span,
         }
     }
 }

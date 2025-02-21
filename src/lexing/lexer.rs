@@ -26,7 +26,7 @@ impl Wildcards<LexerSymbol> for LexerWildcards {
         }
     }
 
-    fn intersection(&self, s1: &LexerSymbol, s2: &LexerSymbol) -> Option<LexerSymbol> {
+    fn intersection(&self, _s1: &LexerSymbol, _s2: &LexerSymbol) -> Option<LexerSymbol> {
         None
     }
 }
@@ -51,8 +51,6 @@ impl<C: Copy + Ord + Debug> Lexer<C> {
                 Dfa::from_regex_with_wildcards(c.regex, &wildcards).map_results(|_| c.category)
             })
             .collect();
-
-        automata.iter().for_each(|a| { println!("{:?}\n", a); } );
 
         Self { automata }
     }
@@ -97,7 +95,8 @@ impl<C: Copy + Ord + Debug> LexingProcess<'_, C> {
                 } else if self.last_accepted.is_some() {
                     self.rollback_and_accept();
                 } else {
-                    panic!("Unexpected character: {:?}", self.input[self.index]);
+                    let lexed = &self.input[self.begin_index..self.index];
+                    panic!("Unexpected character: {:?} at {:?}. Lexed: {:?}", self.input[self.index], self.index, lexed);
                 }
             }
         }

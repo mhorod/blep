@@ -1,0 +1,39 @@
+fun add(x, y) = x + y
+fun sub(x, y) = x - y
+fun mul(x, y) = x * y
+fun div(x, y) = x / y
+fun mod(x, y) = x % y
+fun minus(x) = -x
+
+fun boolean_and(x, y) = x && y
+fun boolean_or(x, y) = x || y
+fun boolean_not(x) = !x
+
+fun xor(x, y) = x ^ y
+fun bitwise_and(x, y) = x & y
+fun bitwise_or(x, y) = x | y
+fun bitwise_not(x) = ~x
+
+fun shl(x, y) = x << y
+fun shr(x, y) = x >> y
+
+fun eq(x, y) = x == y
+fun ne(x, y) = x != y
+fun lt(x, y) = x < y
+fun le(x, y) = x <= y
+fun gt(x, y) = x > y
+fun ge(x, y) = x >= y
+
+fun ref(x) = &x
+fun deref(x) = *x
+
+fun add_assign(mut x, y) = *x += y
+fun sub_assign(mut x, y) = *x -= y
+fun mul_assign(mut x, y) = *x *= y
+fun div_assign(mut x, y) = *x /= y
+fun mod_assign(mut x, y) = *x %= y
+fun and_assign(mut x, y) = *x &= y
+fun or_assign(mut x, y) = *x |= y
+fun xor_assign(mut x, y) = *x ^= y
+fun shl_assign(mut x, y) = *x <<= y
+fun shr_assign(mut x, y) = *x >>= y

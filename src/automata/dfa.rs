@@ -176,13 +176,13 @@ pub trait Wildcards<T> {
 
 struct NoWildcards {}
 impl<T> Wildcards<T> for NoWildcards {
-    fn is_wildcard(&self, symbol: &T) -> bool {
+    fn is_wildcard(&self, _: &T) -> bool {
         false
     }
-    fn matches(&self, wildcard: &T, symbol: &T) -> bool {
+    fn matches(&self, _: &T, _: &T) -> bool {
         false
     }
-    fn intersection(&self, s1: &T, s2: &T) -> Option<T> {
+    fn intersection(&self, _: &T, _: &T) -> Option<T> {
         None
     }
 }

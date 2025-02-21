@@ -27,12 +27,3 @@ pub struct Category<C> {
     pub category: C,
     pub regex: Regex<LexerSymbol>,
 }
-
-#[macro_export]
-macro_rules! token_categories {
-    ($($category:expr => $regex:expr),*) => {
-           vec![
-                $($crate::lexing::Category { category: $category, regex: $regex } ),*
-            ]
-    };
-}

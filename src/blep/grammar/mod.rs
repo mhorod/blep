@@ -16,7 +16,7 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
     use SymbolKind::*;
     use TokenCategory::*;
 
-    let re_grammar = regex_grammar!(
+    regex_grammar!(
         Program,
         Program => Atom(Item).star() + tok!(Eof),
         Item => optional(Atom(Visibility)) +
@@ -40,9 +40,10 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
             + symb!(Eq)
             + Atom(Type),
 
-        FunDef => Atom(FunModifiers)
+        FunDef => optional(kw!(Pure))
             + kw!(Fun)
             + tok!(Identifier)
+            + optional(Atom(GenericParams))
             + Atom(FunParams)
             + optional(symb!(Arrow) + Atom(Type))
             + symb!(Eq)
@@ -52,7 +53,9 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
             kw!(Enum)
             + tok!(TypeName)
             + optional(Atom(GenericParams))
-            + delimited(optional(separated(Atom(EnumVariant), symb!(Comma))), Brace),
+            + Atom(EnumVariants),
+
+        EnumVariants => delimited(optional(separated(Atom(EnumVariant), symb!(Comma))), Brace),
 
         StructDef =>
             (kw!(Struct) | kw!(Class))
@@ -82,25 +85,28 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
 
         StructMethods =>
             delimited(Atom(StructMethod).star(), Brace),
-        StructMethod => optional(Atom(Visibility)) + Atom(FunDef),
+        StructMethod => optional(Atom(Visibility)) 
+            + optional(kw!(Static)) 
+            + optional(kw!(Mut))
+            + Atom(FunDef),
 
 
         InterfaceMethods => delimited(Atom(InterfaceMethod).star(), Brace),
         InterfaceMethod =>
-            Atom(FunModifiers)
+            optional(kw!(Static)) 
+            + optional(kw!(Mut))
+            + optional(kw!(Pure))
             + kw!(Fun)
             + tok!(Identifier)
             + Atom(TypedFunParams)
             + symb!(Arrow) + Atom(Type),
 
 
-        EnumVariant => tok!(TypeName) + optional(delimited(interspersed(Atom(Type), symb!(Comma)),Paren)),
+        EnumVariant => tok!(TypeName) + optional(delimited(interspersed(Atom(Type), symb!(Comma)), Paren)),
 
-        FunModifiers => optional(kw!(Pure)),
         Visibility => kw!(Public) | kw!(Private) | kw!(Internal),
 
-        FunParams => optional(Atom(GenericParams)) + Atom(FunValueParams),
-        FunValueParams => delimited(optional(interspersed(Atom(FunParam), symb!(Comma))), Paren),
+        FunParams => delimited(optional(interspersed(Atom(FunParam), symb!(Comma))), Paren),
         FunParam => optional(kw!(Mut)) + tok!(Identifier) + optional(symb!(Colon) + Atom(Type)),
 
 
@@ -113,25 +119,70 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
             | delimited(interspersed(tok!(TypeName), symb!(Comma)), Bracket),
 
         LetDecl =>
-            (kw!(Let) + optional(kw!(Mut)) + tok!(Identifier) + symb!(Eq) + Atom(Expr) + optional(kw!(In) + Atom(Expr)))
-        ,
+            kw!(Let)
+            + optional(kw!(Mut))
+            + tok!(Identifier)
+            + optional(symb!(Colon) + Atom(Type))
+            + symb!(Eq)
+            + Atom(Expr),
+
+        Stmt => Atom(LetDecl)
+            | Atom(ForLoop)
+            | Atom(WhileLoop)
+            | Atom(LoopLoop)
+            | Atom(Expr),
+
+        ForLoop => kw!(For)
+            + tok!(Identifier)
+            + kw!(In)
+            + Atom(RangeExpr)
+            + Atom(Block),
+
+
+        RangeExpr => Atom(Expr) + (symb!(DotDot) | symb!(DotDotEq)) + Atom(Expr),
+
+        WhileLoop => kw!(While) + Atom(Expr) +  Atom(Block),
+        LoopLoop => kw!(Loop) + Atom(Block),
+
         Expr => Atom(AssignmentLevel),
 
+
         // operator levels
-        AssignmentLevel => Atom(AddLevel) + (
-            (symb!(Eq) | symb!(PlusEq) | symb!(MinusEq)) + Atom(AddLevel)).star(),
+        AssignmentLevel => Atom(BooleanLevel)
+            + optional((symb!(Eq) 
+                | symb!(PlusEq) 
+                | symb!(MinusEq) 
+                | symb!(AsteriskEq)
+                | symb!(SlashEq)
+                | symb!(PercentEq)
+                | symb!(AmpersandEq)
+                | symb!(PipeEq)
+                | symb!(CaretEq)
+                | symb!(ShiftLeftEq)
+                | symb!(ShiftRightEq)
+                )
+            + Atom(BooleanLevel)),
+
+
+        BooleanLevel => Atom(BitwiseLevel) + ((symb!(DoubleAmpersand) | symb!(DoublePipe)) + Atom(BitwiseLevel)).star(),
+        BitwiseLevel => Atom(EqualityComparisonLevel) + ((symb!(Ampersand) | symb!(Pipe) | symb!(Caret)) + Atom(EqualityComparisonLevel)).star(),
+
+        EqualityComparisonLevel => Atom(ComparisonLevel) 
+            + optional((symb!(EqEq) | symb!(NotEq)) + Atom(ComparisonLevel)),
+        ComparisonLevel => Atom(ShiftLevel) 
+            + optional((symb!(Lt) | symb!(Leq) | symb!(Gt) | symb!(Geq)) + Atom(ShiftLevel)),
+
+        ShiftLevel => Atom(AddLevel) + ((symb!(ShiftLeft) | symb!(ShiftRight)) + Atom(AddLevel)).star(),
+
         AddLevel => Atom(MulLevel) + ((symb!(Plus) | symb!(Minus)) + Atom(MulLevel)).star(),
-        MulLevel => Atom(DerefLevel) + ((symb!(Asterisk) | symb!(Slash)) + Atom(DerefLevel)).star(),
-        DerefLevel =>
-            Atom(FunCallLevel)
-            | ((symb!(Asterisk) | symb!(Ampersand)) + Atom(DerefLevel)) ,
-        FunCallLevel => Atom(ExprTerm)
-            +(Atom(FunCall) | Atom(MemberAccess)).star(),
+        MulLevel => Atom(DerefLevel) + ((symb!(Asterisk) | symb!(Slash) | symb!(Percent)) + Atom(DerefLevel)).star(),
+        DerefLevel => (symb!(Asterisk) | symb!(Ampersand)).star() + Atom(FunCallLevel),
+        FunCallLevel => Atom(UnaryLevel)
+            + (Atom(FunCall) | Atom(MemberAccess)).star(),
         MemberAccess => ((symb!(Dot) | symb!(Arrow)) + tok!(Identifier)),
-
-
         FunCall => delimited(optional(interspersed(Atom(Expr), symb!(Comma))), Paren),
 
+        UnaryLevel => (symb!(Minus) | symb!(Bang) | symb!(Tilde)).star() + Atom(ExprTerm),
 
         Parens =>
             empty_delims(Paren)
@@ -139,16 +190,24 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
             | delimited(Atom(Expr), Paren)
             ,
         ExprTerm => lit!(IntLiteral)
+            | lit!(FloatLiteral)
             | lit!(StringLiteral)
+            | lit!(BoolLiteral)
+            | kw!(Break)
+            | kw!(Continue)
             | Atom(QualifiedIdentifier)
             | Atom(Block)
-            | Atom(LetDecl)
-            | Atom(Parens),
+            | Atom(Parens)
+            | Atom(ReturnExpr)
+            | Atom(IfExpr),
 
-        QualifiedIdentifier => (tok!(TypeName) + symb!(DoubleColon)).star() + (tok!(Identifier) | tok!(TypeName)),
+        ReturnExpr => kw!(Return) + optional(Atom(Expr)),
 
-        Block => empty_delims(Brace) | delimited(separated(Atom(Expr), symb!(Semicolon)), Brace),
-        IfExpr => kw!(If) + Atom(Expr) + kw!(Then) + Atom(Expr) + kw!(Else) + Atom(Expr),
+        QualifiedIdentifier => (tok!(TypeName) + symb!(DoubleColon)).star() +
+            (tok!(Identifier) | tok!(TypeName)),
+
+        Block => empty_delims(Brace) | delimited(separated(Atom(Stmt), symb!(Semicolon)), Brace),
+        IfExpr => kw!(If) + Atom(Expr) + Atom(Block) + optional(kw!(Else) + Atom(Block)),
 
         Type => Atom(PtrType) | Atom(RefType) | Atom(FunOrTupleType) | Atom(QualifiedGenericType),
         PtrType => (symb!(Asterisk) | kw!(MutPtr)) + Atom(Type),
@@ -161,13 +220,13 @@ pub fn blep_grammar() -> Grammar<GrammarSymbol> {
             + optional(Atom(GenericArgs)),
 
         GenericArgs => delimited(interspersed(Atom(Type), symb!(Comma)), Bracket)
-    );
-
-    re_grammar.into()
+    ).into()
 }
 
 #[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
 pub enum GrammarSymbol {
+    Token(TokenCategory),
+
     // top level
     Program,
     Item,
@@ -182,8 +241,9 @@ pub enum GrammarSymbol {
 
     // Modifiers
     Visibility,
-    FunModifiers,
 
+    // enum
+    EnumVariants,
     EnumVariant,
 
     // Struct
@@ -201,13 +261,19 @@ pub enum GrammarSymbol {
     TypedFunParams,
     TypedFunParam,
     FunParams,
-    FunValueParams,
     FunParam,
+    ReturnExpr,
 
-    Token(TokenCategory),
+    // Statements
+    Stmt,
+    LetDecl,
+    AssignmentLevel,
+    ForLoop,
+    WhileLoop,
+    LoopLoop,
+    RangeExpr,
 
     // Expressions
-    LetDecl,
     Expr,
     ExprTerm,
     FunCall,
@@ -217,12 +283,17 @@ pub enum GrammarSymbol {
     QualifiedIdentifier,
 
     // Operator levels
-    AssignmentLevel,
+    EqualityComparisonLevel,
+    BooleanLevel,
+    BitwiseLevel,
+    ComparisonLevel,
+    ShiftLevel,
     AddLevel,
     MulLevel,
     DerefLevel,
     FunCallLevel,
     MemberAccess,
+    UnaryLevel,
 
     // Types
     Type,

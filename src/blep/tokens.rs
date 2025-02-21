@@ -5,11 +5,26 @@ use crate::lexing::Categories;
 use crate::lexing::LexerSymbol;
 use crate::lexing::LexerSymbol::*;
 use crate::regex::{Regex, Regex::*};
-use crate::token_categories;
 
 macro_rules! char {
     ($c:expr) => {
         Atom(Concrete($c))
+    };
+}
+
+macro_rules! token_categories {
+    ($($category:expr => $regex:expr),*) => {
+           vec![
+                $($crate::lexing::Category { category: $category, regex: $regex } ),*
+            ]
+    };
+}
+
+macro_rules! keywords {
+    ($($name:ident => $s:expr),*) => {
+        vec![
+            $($crate::lexing::Category { category: Keyword($name), regex: string_atom($s) } ),*
+        ]
     };
 }
 
@@ -29,7 +44,10 @@ fn blep_atoms() -> Categories<TokenCategory> {
         Identifier => (Atom(Lowercase) | char!('_'))
         + (char!('_') | Atom(Lowercase) | Atom(Uppercase) | Atom(Digit)).star(),
         Whitespace => (char!(' ') | char!('\t') | char!('\n')).star(),
+        Comment => string_atom("//") + Atom(Not('\n')).star(),
         Literal(IntLiteral) => Atom(Digit) + Atom(Digit).star(),
+        Literal(FloatLiteral) => Atom(Digit) + Atom(Digit).star() + char!('.') + Atom(Digit).plus(),
+        Literal(BoolLiteral) => string_atom("True") | string_atom("False"),
         Literal(StringLiteral) => char!('"') + Atom(Not('"')).star() + char!('"')
     )
 }
@@ -37,38 +55,48 @@ fn blep_atoms() -> Categories<TokenCategory> {
 fn blep_keywords() -> Categories<TokenCategory> {
     use KeywordKind::*;
     use TokenCategory::*;
-    token_categories!(
-        // keywords
-        Keyword(Let) => string_atom("let"),
-        Keyword(In) => string_atom("in"),
-        Keyword(Pure) => string_atom("pure"),
-        Keyword(Fun) => string_atom("fun"),
-        Keyword(Enum) => string_atom("enum"),
-        Keyword(Public) => string_atom("public"),
-        Keyword(Private) => string_atom("private"),
-        Keyword(Internal) => string_atom("internal"),
-        Keyword(Return) => string_atom("return"),
+    keywords!(
+        Let => "let",
+        Pure => "pure",
+        Static => "static",
+        Fun => "fun",
+        Enum => "enum",
+        Public => "public",
+        Private => "private",
+        Internal => "internal",
+        Return => "return",
+        If => "if",
+        Else => "else",
+
+        // loop keywords
+        For => "for",
+        While => "while",
+        Loop => "loop",
+        Do => "do",
+        In => "in",
+        Break => "break",
+        Continue => "continue",
 
         // module keywords
-        Keyword(Module) => string_atom("module"),
-        Keyword(Import) => string_atom("import"),
-        Keyword(Qualified) => string_atom("qualified"),
-        Keyword(As) => string_atom("as"),
+        Module => "module",
+        Import => "import",
+        Qualified => "qualified",
+        As => "as",
 
         // mutability keywords
-        Keyword(Mut) => string_atom("mut"),
-        Keyword(MutRef) => string_atom("&mut"),
-        Keyword(MutPtr) => string_atom("*mut"),
+        Mut => "mut",
+        MutRef => "&mut",
+        MutPtr => "*mut",
 
         // type keywords
-        Keyword(NewType) => string_atom("newtype"),
-        Keyword(TypeAlias) => string_atom("typealias"),
+        NewType => "newtype",
+        TypeAlias => "typealias",
 
         // Data structure keywords
-        Keyword(Struct) => string_atom("struct"),
-        Keyword(Class) => string_atom("class"),
-        Keyword(Interface) => string_atom("interface"),
-        Keyword(Implements) => string_atom("implements")
+        Struct => "struct",
+        Class => "class",
+        Interface => "interface",
+        Implements => "implements"
     )
 }
 
@@ -93,18 +121,23 @@ fn blep_symbols() -> Categories<TokenCategory> {
         Symbol(DoubleColon) => string_atom("::"),
         Symbol(Comma) => char!(','),
         Symbol(Dot) => char!('.'),
+        Symbol(DotDot) => string_atom(".."),
+        Symbol(DotDotEq) => string_atom("..="),
 
         // operators
         Symbol(Arrow) => string_atom("->"),
         Symbol(Ampersand) => char!('&'),
         Symbol(Asterisk) => char!('*'),
         Symbol(Slash) => char!('/'),
-        Symbol(Percent) => char!('/'),
+        Symbol(Percent) => char!('%'),
         Symbol(Plus) => char!('+'),
         Symbol(Minus) => char!('-'),
+        Symbol(Bang) => char!('!'),
+        Symbol(Tilde) => char!('~'),
+
         Symbol(Lt) => char!('<'),
         Symbol(Leq) => string_atom("<="),
-        Symbol(Gt) => char!('<'),
+        Symbol(Gt) => char!('>'),
         Symbol(Geq) => string_atom(">="),
         Symbol(ShiftLeft) => string_atom("<<"),
         Symbol(ShiftRight) => string_atom(">>"),
@@ -124,8 +157,8 @@ fn blep_symbols() -> Categories<TokenCategory> {
         Symbol(CaretEq) => string_atom("^="),
         Symbol(AmpersandEq) => string_atom("&="),
         Symbol(PipeEq) => string_atom("|="),
-        Symbol(DoubleAmpersandEq) => string_atom("&&="),
-        Symbol(DoublePipeEq) => string_atom("||=")
+        Symbol(ShiftLeftEq) => string_atom("<<="),
+        Symbol(ShiftRightEq) => string_atom(">>=")
     )
 }
 
@@ -140,6 +173,7 @@ pub enum TokenCategory {
     CloseDelim(DelimKind),
     Symbol(SymbolKind),
     Whitespace,
+    Comment,
     Identifier,
     TypeName,
     Literal(LiteralKind),
@@ -149,11 +183,10 @@ pub enum TokenCategory {
 #[derive(PartialOrd, Ord, Eq, PartialEq, Hash, Debug, Copy, Clone)]
 pub enum KeywordKind {
     Let,
-    In,
     If,
-    Then,
     Else,
     Fun,
+    Static,
     Pure,
     Enum,
     Public,
@@ -161,6 +194,16 @@ pub enum KeywordKind {
     Internal,
     Return,
 
+    // loops
+    For,
+    While,
+    Loop,
+    Do,
+    In,
+    Break,
+    Continue,
+
+    // modules
     Module,
     Import,
     Qualified,
@@ -189,21 +232,29 @@ pub enum DelimKind {
 
 #[derive(PartialOrd, Ord, Eq, PartialEq, Hash, Debug, Copy, Clone)]
 pub enum SymbolKind {
-    Eq,
-    EqEq,
-    NotEq,
+    // syntactical
     Semicolon,
     Colon,
     DoubleColon,
     Comma,
     Dot,
     Arrow,
+    DotDot,
+    DotDotEq,
+
+    // operators
+    Eq,
+    EqEq,
+    NotEq,
     Ampersand,
     Asterisk,
     Percent,
     Slash,
     Plus,
     Minus,
+    Bang,
+    Tilde,
+
     Lt,
     Leq,
     Gt,
@@ -221,15 +272,15 @@ pub enum SymbolKind {
     PlusEq,
     MinusEq,
     ShiftLeftEq,
-    ShiftRightEQ,
+    ShiftRightEq,
     CaretEq,
     PipeEq,
-    DoubleAmpersandEq,
-    DoublePipeEq,
 }
 
 #[derive(PartialOrd, Ord, Eq, PartialEq, Hash, Debug, Copy, Clone)]
 pub enum LiteralKind {
     IntLiteral,
+    FloatLiteral,
+    BoolLiteral,
     StringLiteral,
 }
